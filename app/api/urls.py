@@ -18,7 +18,7 @@ async def shorten_url(
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
-    ip = request.client.host
+    ip = (request.headers.get("X-Forwarded-For") or request.client.host).split(",")[0].strip()
     allowed = await check_rate_limit(
         redis,
         key=f"rate:shorten:{ip}",
@@ -35,8 +35,15 @@ async def shorten_url(
             expires_in_days=body.expires_in_days,
             custom_code=body.custom_code,
         )
-    except url_service.CollisionError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    except url_service.CollisionError:
+        # Use a static message so we don't echo back user-supplied values or
+        # expose internal retry-exhaustion details.
+        detail = (
+            "That alias is already taken. Please choose a different one."
+            if body.custom_code
+            else "Could not generate a unique short code. Please try again."
+        )
+        raise HTTPException(status_code=409, detail=detail)
 
     return ShortenResponse(
         short_code=url.short_code,
@@ -57,4 +64,11 @@ async def delete_url(
     except url_service.NotFoundError:
         raise HTTPException(status_code=404, detail="Short URL not found")
 
-    await redis.delete(f"url:{short_code}")
+    # Atomically replace the cache entry with an __expired__ sentinel so that
+    # in-flight requests cannot repopulate the key after the DB row is gone.
+    # The sentinel TTL matches the one used for time-based expiry (1 hour),
+    # after which the key is dropped and a 404 is returned from the DB.
+    pipe = redis.pipeline()
+    await pipe.delete(f"url:{short_code}")
+    await pipe.setex(f"url:{short_code}", 3600, "__expired__")
+    await pipe.execute()

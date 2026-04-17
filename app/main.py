@@ -8,6 +8,7 @@ from app.models import Base
 from app.api import urls, redirect, analytics
 from app.services.click_flush import flush_click_counts
 from app.services.expiry import cleanup_expired_urls
+from app.config import settings
 
 
 scheduler = AsyncIOScheduler()
@@ -30,11 +31,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="URL Shortener", lifespan=lifespan)
 
+allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
 app.include_router(urls.router, prefix="/api")

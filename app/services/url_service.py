@@ -60,8 +60,13 @@ async def get_url(db: AsyncSession, short_code: str) -> Url:
     url = await db.scalar(select(Url).where(Url.short_code == short_code))
     if not url:
         raise NotFoundError(short_code)
-    if url.expires_at and url.expires_at < datetime.now(timezone.utc):
+    # is_active=False means the URL was soft-deleted by the expiry job.
+    if not url.is_active:
         raise ExpiredError(short_code)
+    if url.expires_at:
+        expires = url.expires_at if url.expires_at.tzinfo else url.expires_at.replace(tzinfo=timezone.utc)
+        if expires < datetime.now(timezone.utc):
+            raise ExpiredError(short_code)
     return url
 
 

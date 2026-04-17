@@ -1,139 +1,144 @@
-import { useState } from "react";
+import { useState } from 'react'
+import { ShortenForm } from './components/ShortenForm'
+import { ShortenResult } from './components/ShortenResult'
+import { ErrorBanner } from './components/ErrorBanner'
+import './index.css'
 
-const API = "http://localhost:8000";
+function LinkIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-6 w-6 text-white"
+      aria-hidden="true"
+    >
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
 
-function App() {
-  const [url, setUrl] = useState("");
-  const [expiresInDays, setExpiresInDays] = useState("");
-  const [result, setResult] = useState(null);
-  const [analytics, setAnalytics] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function App() {
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
 
-  async function shorten(e) {
-    e.preventDefault();
-    setError("");
-    setResult(null);
-    setAnalytics(null);
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/api/shorten`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url,
-          expires_in_days: expiresInDays ? parseInt(expiresInDays) : null,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Something went wrong");
-      }
-      setResult(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  function handleSuccess(data) {
+    setResult(data)
+    setError(null)
   }
 
-  async function fetchAnalytics(code) {
-    const res = await fetch(`${API}/api/analytics/${code}`);
-    if (res.ok) setAnalytics(await res.json());
+  function handleError(msg) {
+    setError(msg)
+  }
+
+  function handleReset() {
+    setResult(null)
+    setError(null)
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>URL Shortener</h1>
-
-        <form onSubmit={shorten} style={styles.form}>
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="https://your-long-url.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            required
-          />
-          <input
-            style={{ ...styles.input, width: "160px", flex: "none" }}
-            type="number"
-            placeholder="Expires in days"
-            value={expiresInDays}
-            onChange={(e) => setExpiresInDays(e.target.value)}
-            min={1}
-          />
-          <button style={styles.button} type="submit" disabled={loading}>
-            {loading ? "Shortening…" : "Shorten"}
-          </button>
-        </form>
-
-        {error && <p style={styles.error}>{error}</p>}
-
-        {result && (
-          <div style={styles.result}>
-            <p style={styles.label}>Your short link:</p>
-            <a href={result.short_url} target="_blank" rel="noreferrer" style={styles.link}>
-              {result.short_url}
-            </a>
-            <p style={styles.meta}>
-              Original: <span style={styles.muted}>{result.original_url}</span>
-            </p>
-            {result.expires_at && (
-              <p style={styles.meta}>
-                Expires: <span style={styles.muted}>{new Date(result.expires_at).toLocaleString()}</span>
-              </p>
-            )}
-            <button
-              style={{ ...styles.button, marginTop: "12px", background: "#374151" }}
-              onClick={() => fetchAnalytics(result.short_code)}
-            >
-              View Analytics
-            </button>
-          </div>
-        )}
-
-        {analytics && (
-          <div style={styles.analytics}>
-            <h2 style={styles.analyticsTitle}>Analytics — {analytics.short_code}</h2>
-            <div style={styles.stat}>
-              <span style={styles.statNum}>{analytics.click_count}</span>
-              <span style={styles.statLabel}>total clicks</span>
+    <div
+      className="flex min-h-screen flex-col"
+      style={{
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        background: 'linear-gradient(135deg, #f0fdfa 0%, #f0fdf4 50%, #ecfdf5 100%)',
+      }}
+    >
+      {/* Main content */}
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-xl">
+          {/* App header */}
+          <div className="mb-8 text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 shadow-lg shadow-teal-200">
+                <LinkIcon />
+              </div>
             </div>
-            <p style={styles.meta}>
-              Created: <span style={styles.muted}>{new Date(analytics.created_at).toLocaleString()}</span>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+              Snip
+            </h1>
+            <p className="mt-2 text-sm text-gray-500">
+              Paste a long URL and get a clean, shareable short link in seconds.
             </p>
-            {analytics.expires_at && (
-              <p style={styles.meta}>
-                Expires: <span style={styles.muted}>{new Date(analytics.expires_at).toLocaleString()}</span>
-              </p>
+          </div>
+
+          {/* Card */}
+          <div className="rounded-2xl border border-white/80 bg-white/90 p-6 shadow-xl shadow-teal-100/40 backdrop-blur-sm sm:p-8">
+            {/* Error banner */}
+            {error && (
+              <div className="mb-5">
+                <ErrorBanner
+                  message={error}
+                  onDismiss={() => setError(null)}
+                />
+              </div>
+            )}
+
+            {result ? (
+              <ShortenResult
+                result={result}
+                onReset={handleReset}
+                onError={handleError}
+              />
+            ) : (
+              <ShortenForm onSuccess={handleSuccess} onError={handleError} />
             )}
           </div>
-        )}
-      </div>
+
+          {/* Tips beneath card */}
+          {!result && (
+            <ul className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-1">
+              {[
+                'Custom aliases supported',
+                'Set an expiry date',
+                'Click analytics included',
+              ].map((tip) => (
+                <li
+                  key={tip}
+                  className="flex items-center gap-1.5 text-xs text-gray-400"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    className="h-3.5 w-3.5 text-teal-400"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12.416 3.376a.75.75 0 01.208 1.04l-5 7.5a.75.75 0 01-1.154.114l-3-3a.75.75 0 011.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 011.04-.207z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-5 text-center text-xs text-gray-400">
+        <p>
+          Built with{' '}
+          <span className="text-teal-500">FastAPI + React</span>
+          {' · '}
+          <a
+            href="https://github.com"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-teal-500 hover:underline focus:outline-none focus-visible:underline"
+          >
+            Source
+          </a>
+        </p>
+      </footer>
     </div>
-  );
+  )
 }
-
-const styles = {
-  page: { minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" },
-  card: { background: "#1e293b", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "580px", boxShadow: "0 25px 50px rgba(0,0,0,0.5)" },
-  title: { color: "#f1f5f9", fontSize: "28px", marginBottom: "24px", fontWeight: 700 },
-  form: { display: "flex", gap: "8px", flexWrap: "wrap" },
-  input: { flex: 1, minWidth: "200px", padding: "10px 14px", borderRadius: "8px", border: "1px solid #334155", background: "#0f172a", color: "#f1f5f9", fontSize: "14px", outline: "none" },
-  button: { padding: "10px 20px", borderRadius: "8px", border: "none", background: "#6366f1", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "14px" },
-  error: { color: "#f87171", marginTop: "12px", fontSize: "14px" },
-  result: { marginTop: "24px", borderTop: "1px solid #334155", paddingTop: "20px" },
-  label: { color: "#94a3b8", fontSize: "12px", marginBottom: "4px" },
-  link: { color: "#818cf8", fontSize: "18px", fontWeight: 600, wordBreak: "break-all" },
-  meta: { color: "#64748b", fontSize: "13px", marginTop: "8px" },
-  muted: { color: "#94a3b8" },
-  analytics: { marginTop: "20px", borderTop: "1px solid #334155", paddingTop: "20px" },
-  analyticsTitle: { color: "#f1f5f9", fontSize: "16px", fontWeight: 600, marginBottom: "12px" },
-  stat: { display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "12px" },
-  statNum: { color: "#818cf8", fontSize: "36px", fontWeight: 700 },
-  statLabel: { color: "#94a3b8", fontSize: "14px" },
-};
-
-export default App;

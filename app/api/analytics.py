@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,9 @@ from app.services import url_service
 
 router = APIRouter(tags=["analytics"])
 
+# Only alphanumeric short codes up to 10 characters are valid.
+_SHORT_CODE_RE = re.compile(r"^[A-Za-z0-9]{1,10}$")
+
 
 @router.get("/analytics/{short_code}", response_model=AnalyticsResponse)
 async def get_analytics(
@@ -15,6 +20,8 @@ async def get_analytics(
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
+    if not _SHORT_CODE_RE.match(short_code):
+        raise HTTPException(status_code=404, detail="Short URL not found.")
     try:
         url = await url_service.get_analytics(db, short_code)
     except url_service.NotFoundError:
